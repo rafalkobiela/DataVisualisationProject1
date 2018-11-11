@@ -1,0 +1,254 @@
+---
+title: "Marvel vs DC"
+author: "Rafał Kobiela"
+output: 
+ html_document:
+  toc: yes
+  theme: cosmo
+  highlight: tango
+  code_folding: hide
+---
+
+# Introduction
+
+
+```{r read, echo=TRUE, message=FALSE, warning=FALSE, error=FALSE}
+library(readr)
+library(knitr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(formattable)
+
+heroes <- read_csv('../data/super_hero_powers_information/super_hero_powers_information.csv')
+powers <- read_csv('../data/super_hero_powers_information/super_hero_powers.csv')
+```
+## Inspecting the Datasets {.tabset .tabset-fade .tabset-pills}
+
+###Heroes
+```{r head_heroes}
+knitr::kable(head(heroes,10),caption="Heroes List (first 10 rows)")
+```
+
+###Heroes Summary
+```{r summary_heroes}
+summary(heroes)
+```
+
+###Heroes Structure
+```{r glimpse_heroes}
+glimpse(heroes)
+```
+
+###Powers
+```{r head_powers}
+knitr::kable(head(powers,10),caption="Superpowers List of each Heroes (first 10 rows)")
+```
+
+###Powers Summary
+```{r summary_powers}
+summary(powers)
+```
+
+###Powers Structure
+```{r glimpse_powers}
+glimpse(powers)
+```
+
+## Preparing the Data
+
+```{r prepare,echo=TRUE, message=FALSE, warning=FALSE, error=FALSE}
+heroes$Weight[heroes$Weight == "-99"] <- NA
+heroes$Height[heroes$Height == "-99"] <- NA
+
+powers[,-1] <- lapply(powers[,-1], as.logical)
+heroes$Gender <- as.factor(heroes$Gender)
+heroes$Alignment <- as.factor(heroes$Alignment)
+
+heroes$Gender[heroes$Gender == "-"] <- NA
+heroes$`Eye color`[heroes$`Eye color` == "-"] <- NA
+heroes$Race[heroes$Race == "-"] <- NA
+heroes$`Hair color`[heroes$`Hair color` == "-"] <- NA
+heroes$`Skin color`[heroes$`Skin color` == "-"] <- NA
+heroes$Alignment[heroes$Alignment == "-"] <- NA
+
+heroes <- heroes[,-1]
+```
+
+## Inspecting the Tidy Datasets {.tabset .tabset-fade .tabset-pills}
+
+###Heroes
+```{r head_heroes_tidy}
+knitr::kable(head(heroes,10),caption="Heroes List (first 10 rows)")
+```
+
+###Heroes Summary
+```{r summary_heroes_tidy}
+summary(heroes)
+```
+
+###Heroes Structure
+```{r glimpse_heroes_tidy}
+glimpse(heroes)
+```
+
+###Powers
+```{r head_powers_tidy}
+knitr::kable(head(powers,10),caption="Superpowers List of each Heroes (first 10 rows)")
+```
+
+###Powers Summary
+```{r summary_powers_tidy}
+summary(powers)
+```
+
+###Powers Structure
+```{r glimpse_powers_tidy}
+glimpse(powers)
+```
+
+---
+
+
+# Marvel vs DC Comics: Universe Comparison
+
+Since most of the data consist of superheroes from either **DC Comics** or **Marvel**, I'll compare only two of them.
+
+```{r ,echo=TRUE, message=FALSE, warning=FALSE, error=FALSE}
+marvel_dc <- heroes %>%
+    filter(Publisher %in% c("Marvel Comics","DC Comics")) 
+```
+
+## Which Superheroes have more variety of superpowers?
+
+```{r ,echo=TRUE, message=FALSE, warning=FALSE, error=FALSE}
+powers <- powers %>%
+    mutate(total_powers = rowSums(.[2:ncol(powers)]))
+    
+top20_heroes <- marvel_dc %>%
+    inner_join(powers, by = c('name' = 'hero_names')) %>%
+    select(name, total_powers, Publisher) %>%
+    arrange(desc(total_powers)) %>%
+    head(20)
+
+top20_heroes %>%
+    ggplot(aes(x=reorder(name,total_powers), y=total_powers, fill=Publisher)) +
+    geom_bar(stat = "identity") + 
+    geom_text(aes(label = total_powers), hjust = -0.4, size = 3, color = "black") +
+    labs(title = "Superheroes having most number of powers", x='Name',y='Number of Superpowers') +
+    theme_bw() +
+    theme(plot.title = element_text(size=17,hjust = -0.4, face = "bold"), legend.position = "bottom", legend.title=element_blank()) +
+    scale_fill_manual(values = c("#377EB8", "#E41A1C")) +
+    coord_flip()
+```
+
+## Which Superheroes have unique powers?
+
+```{r ,echo=TRUE, message=FALSE, warning=FALSE, error=FALSE}
+gathered_powers2 <- gather(powers, power, power_count, -hero_names, -total_powers)
+
+gathered_powers2 %>%
+    group_by(power) %>%
+    mutate(how_many = sum(power_count)) %>%
+    ungroup() %>%
+    filter(how_many == 1 & power_count == 1) %>%
+    inner_join(marvel_dc, by = c('hero_names' = 'name')) %>%
+    select(hero_names, power, total_powers, Publisher) %>%
+    arrange(desc(total_powers)) %>%
+    formattable()
+```
+
+## Common Powers of Superheroes
+
+```{r ,echo=TRUE, message=FALSE, warning=FALSE, error=FALSE}
+heroes$Publisher[is.na(heroes$Publisher)] <- 'Other Comics'
+heroes$Publisher[! (heroes$Publisher %in% c('Marvel Comics','DC Comics'))] <- 'Other Comics'
+
+gathered_powers3 <- heroes %>%
+    select(name, Publisher) %>%
+    inner_join(powers, by = c('name' = 'hero_names')) %>%
+    gather(power, power_count, -name, -Publisher)
+
+top_superpowers <- gathered_powers3 %>%
+    group_by(power, Publisher) %>%
+    summarise(powers_used_by = sum(power_count)) %>%
+    arrange(desc(powers_used_by)) %>%
+    filter(powers_used_by < 800) %>%
+    group_by(power) %>%
+    mutate(powers_in_total = sum(powers_used_by)) %>%
+    ungroup()
+
+top_superpowers$Publisher <- factor(top_superpowers$Publisher, levels = c('Other Comics','DC Comics','Marvel Comics')) 
+
+top_superpowers %>%
+    filter(powers_in_total >= 75) %>%
+    ggplot(aes(x = reorder(power,powers_in_total) , y = powers_used_by, fill = Publisher)) +
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = c("#33A02C", "#377EB8", "#E41A1C")) +
+    labs(title = "Common Powers of Superheroes", x = "Powers", y = "Number of Superheroes") +
+    theme_bw() +
+    theme(legend.position = "bottom", legend.title=element_blank(), plot.title = element_text(size=17,hjust = -0.4, face = "bold")) +
+    ylim(0, max(top_superpowers$powers_used_by + 200)) +
+    coord_flip()
+```
+
+```{r ,echo=TRUE, message=FALSE, warning=FALSE, error=FALSE}
+top_superpowers %>%
+    filter(powers_in_total >= 100) %>%
+    ggplot(aes(x = reorder(power,powers_in_total) , y = powers_used_by, fill = Publisher)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_fill_manual(values = c("#33A02C", "#377EB8", "#E41A1C")) +
+    labs(title = "Common Powers of Superheroes", x = "Powers", y = "Number of Superheroes") +
+    theme_bw() +
+    theme(legend.position = "bottom",legend.title=element_blank(), plot.title = element_text(size=17,hjust = -0.4, face = "bold")) +
+    coord_flip()
+```
+
+## Gender Distribution in each universe
+
+```{r ,echo=TRUE, message=FALSE, warning=FALSE, error=FALSE}
+ggplot(data=subset(heroes, !is.na(Gender)), aes(x = Publisher, fill = Gender)) +
+    geom_bar(position = "fill") +
+    scale_fill_brewer(palette = "Paired") +
+    labs(x = "", y = "") +
+    theme_bw()
+```
+
+## Good & Bad Alignment in each universe
+
+```{r ,echo=TRUE, message=FALSE, warning=FALSE, error=FALSE}
+heroes$Alignment <- factor(heroes$Alignment, levels = c('bad','neutral','good'))
+
+ggplot(data=subset(heroes, !is.na(Alignment)), aes(x = Publisher, fill = Alignment)) +
+    geom_bar(position = "fill") +
+    scale_fill_brewer(palette = "Set2") +
+    labs(x = "", y = "") +
+    theme_bw()
+```
+
+## Common Races of Superheroes
+
+```{r ,echo=TRUE, message=FALSE, warning=FALSE, error=FALSE}
+races <- heroes %>%
+    filter(!is.na(Race)) %>%
+    group_by(Publisher, Race) %>%
+    summarise(race_total = n()) %>%
+    arrange(desc(race_total))
+
+races <- races %>%
+    group_by(Race) %>%
+    mutate(total = sum(race_total)) %>%
+    ungroup()
+
+races$Publisher <- factor(races$Publisher, levels = c('Other Comics','DC Comics','Marvel Comics'))
+
+races %>%
+    filter(total >= 5) %>%
+    ggplot(aes(x = reorder(Race,total) , y = race_total, fill = Publisher)) +
+    geom_bar(stat = "identity", position = "dodge") +
+    scale_fill_manual(values = c("#33A02C", "#377EB8", "#E41A1C")) +
+    labs(title = "Common Races of Superheroes", x = "Races", y = "Number of Superheroes") +
+    theme(legend.position = "bottom", legend.title=element_blank()) +
+    scale_y_continuous(breaks = seq(0,100,5)) +
+    coord_flip()
+```
