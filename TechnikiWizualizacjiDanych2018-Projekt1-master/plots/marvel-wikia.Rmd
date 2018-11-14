@@ -1,0 +1,41 @@
+---
+title: "R Notebook"
+author: "Rafał Kobiela"
+output: 
+ html_document:
+  toc: yes
+  theme: cosmo
+  highlight: tango
+  code_folding: hide
+---
+
+
+# Introduction
+
+```{r read, echo=TRUE, message=FALSE, warning=FALSE, error=FALSE}
+library(readr)
+library(knitr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(formattable)
+
+marvel <- read_csv('../data/marvel-wikia-data/marvel-wikia-data.csv')
+```
+
+## Inspecting the Datasets {.tabset .tabset-fade .tabset-pills}
+
+###Marvel-wikia
+```{r head_avengers}
+knitr::kable(head(marvel,10),caption="Avengers List (first 10 rows)")
+```
+
+###Marvel-wikia Summary
+```{r summary_avengers}
+summary(marvel)
+```
+
+###Marvel-wikia Structure
+```{r glimpse_avengers}
+glimpse(marvel)
+```

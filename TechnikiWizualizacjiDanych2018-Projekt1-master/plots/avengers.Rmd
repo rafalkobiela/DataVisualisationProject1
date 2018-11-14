@@ -1,0 +1,41 @@
+---
+title: "R Notebook"
+author: "Rafał Kobiela"
+output: 
+ html_document:
+  toc: yes
+  theme: cosmo
+  highlight: tango
+  code_folding: hide
+---
+
+
+# Introduction
+
+```{r read, echo=TRUE, message=FALSE, warning=FALSE, error=FALSE}
+library(readr)
+library(knitr)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(formattable)
+
+avengers <- read_csv('../data/avengers/avengers.csv')
+```
+
+## Inspecting the Datasets {.tabset .tabset-fade .tabset-pills}
+
+###Avengers
+```{r head_avengers}
+knitr::kable(head(avengers,10),caption="Avengers List (first 10 rows)")
+```
+
+###Avengers Summary
+```{r summary_avengers}
+summary(avengers)
+```
+
+###Avengers Structure
+```{r glimpse_avengers}
+glimpse(avengers)
+```
